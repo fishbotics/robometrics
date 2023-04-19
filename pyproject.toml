@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "robometrics"
+version = "0.1.0"
+description = "A unified framework for metrics evaluation for robotic manipulation"
+authors = ["Adam Fishman"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+robofin = "^0.0.2"
+geometrout = "^0.1.0.5"
+numpy = "^1.24.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
