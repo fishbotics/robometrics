@@ -30,9 +30,8 @@ from typing import Dict, List, Optional, Sequence, Tuple, Union
 import numpy as np
 from geometrout.primitive import Cuboid, Cylinder, Sphere
 from geometrout.transform import SE3, SO3
-from robofin.kinematics.collision import (FrankaCollisionSpheres,
-                                          franka_arm_collides)
-from robofin.robots import FrankaRobot
+
+from robometrics.robot import Robot
 
 Stat = namedtuple("Stat", "mean std")
 
@@ -112,13 +111,12 @@ class Evaluator:
     This class can be used to evaluate a whole set of environments and data
     """
 
-    def __init__(self, prismatic_joint=None):
+    def __init__(self, robot: Robot):
         """
         Initializes the evaluator class
 
         """
-        self.cooo = FrankaCollisionSpheres()
-        self.prismatic_joint: Optional[float] = prismatic_joint
+        self.robot = robot
         self.groups: Dict[str, List[TrajectoryMetrics]] = {}
         self.current_group: List[TrajectoryMetrics] = []
         self.current_group_key: str = ""
@@ -136,7 +134,6 @@ class Evaluator:
     def has_self_collision(
         self,
         trajectory: Trajectory,
-        prismatic_joint: Optional[float] = None,
     ) -> bool:
         """
         Checks whether there is a self collision (using OR between different methods)
@@ -145,14 +142,7 @@ class Evaluator:
         :rtype bool: Whether there is a self collision
         """
         for q in trajectory:
-            if prismatic_joint is None:
-                assert (
-                    len(q) == 8
-                ), "Franka only has 8 DOF (including the mirrored fingers)"
-                pj = q[-1]
-            else:
-                pj = prismatic_joint
-            if self.cooo.has_self_collision(q[:7], pj):
+            if self.robot.has_self_collision(q):
                 return True
         return False
 
@@ -160,31 +150,21 @@ class Evaluator:
         self,
         trajectory: Trajectory,
         obstacles: Obstacles,
-        prismatic_joint: Optional[float] = None,
     ) -> bool:
         """
         Checks whether the trajectory is in collision according to all including
         collision checkers (using AND between different methods)
-        Assumes that the prismatic value is fixed over the entire trajectory
 
         :param trajectory Trajectory: The trajectory
         :param obstacles Obstacles: Obstacles to check
         :rtype bool: Whether there is a collision
         """
         for q in trajectory:
-            if prismatic_joint is None:
-                assert (
-                    len(q) == 8
-                ), "Franka only has 8 DOF (including the mirrored fingers)"
-                pj = q[-1]
-            else:
-                pj = prismatic_joint
-            if franka_arm_collides(q[:7], pj, self.cooo, obstacles):
+            if self.robot.has_scene_collision(q, obstacles):
                 return True
         return False
 
-    @staticmethod
-    def violates_joint_limits(trajectory: Trajectory) -> bool:
+    def violates_joint_limits(self, trajectory: Trajectory) -> bool:
         """
         Checks whether any configuration in the trajectory violates joint limits
 
@@ -192,7 +172,7 @@ class Evaluator:
         :rtype bool: Whether there is a joint limit violation
         """
         for q in trajectory:
-            if not FrankaRobot.within_limits(q):
+            if not self.robot.within_joint_limits(q):
                 return True
         return False
 
@@ -208,9 +188,9 @@ class Evaluator:
         :rtype bool: Whether there is at least one physical violation
         """
         return (
-            self.in_collision(trajectory, obstacles, self.prismatic_joint)
+            self.in_collision(trajectory, obstacles)
             or self.violates_joint_limits(trajectory)
-            or self.has_self_collision(trajectory, self.prismatic_joint)
+            or self.has_self_collision(trajectory)
         )
 
     @staticmethod
@@ -320,7 +300,7 @@ class Evaluator:
             time=time,
             collision=self.in_collision(trajectory, obstacles),
             joint_limit_violation=self.violates_joint_limits(trajectory),
-            self_collision=self.has_self_collision(trajectory, self.prismatic_joint),
+            self_collision=self.has_self_collision(trajectory),
             physical_violation=self.has_physical_violation(trajectory, obstacles),
             position_error=self.check_final_position(eef_trajectory[-1], target_pose),
             orientation_error=self.check_final_orientation(
