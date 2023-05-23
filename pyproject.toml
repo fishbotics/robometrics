@@ -6,10 +6,10 @@ authors = ["Adam Fishman"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.7"
 geometrout = "^0.1.0.5"
-numpy = "^1.24.2"
-pyyaml = "^6.0"
+numpy = "^1.15"
+pyyaml = "^5.3"
 
 
 [build-system]
