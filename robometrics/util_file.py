@@ -23,7 +23,7 @@
 
 import os
 import yaml
-
+from typing import Dict
 
 def get_module_path():
     path = os.path.dirname(__file__)
@@ -47,7 +47,8 @@ def get_robot_path():
 
 
 def get_mpinets_dataset_path():
-    path = os.path.join(get_dataset_path(), "mpinets_set.yaml")
+    name = "mpinets_set.yaml"
+    path = os.path.join(get_dataset_path(), name)
     return path
 
 
@@ -60,6 +61,11 @@ def load_yaml(file_path: str):
     with open(file_path) as file:
         yaml_params = yaml.load(file, Loader=yaml.FullLoader)
     return yaml_params
+
+
+def write_yaml(data: Dict, file_path):
+    with open(file_path, "w") as file:
+        yaml.dump(data, file)
 
 
 def get_mb_dataset():

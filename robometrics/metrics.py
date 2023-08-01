@@ -36,6 +36,9 @@ class Stat:
 
     @staticmethod
     def from_list(lst: Sequence[float]):
+        if len(lst) < 1:
+            return Stat(0, 0, 0, 0, 0)
+
         return Stat(
             np.mean(lst),
             np.std(lst),
@@ -95,6 +98,7 @@ class TrajectoryGroupMetrics:
     orientation_error: float
     motion_time: Stat
     solve_time: float
+
     @staticmethod
     def from_list(group: List[TrajectoryMetrics]):
         unskipped = [m for m in group if not m.skip]
@@ -132,7 +136,6 @@ class TrajectoryGroupMetrics:
             orientation_error=Stat.from_list([m.orientation_error for m in successes]),
             motion_time=Stat.from_list([m.motion_time for m in successes]),
             solve_time=Stat.from_list([m.solve_time for m in successes]),
-            
         )
 
     def print(self):
