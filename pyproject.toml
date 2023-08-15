@@ -7,10 +7,12 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.7"
-geometrout = "^0.1.0.5"
-numpy = "*"
-pyyaml = "^6.0"
-urchin = "*"
+numpy = "^1.15"
+pyyaml = "^5.3"
+geometrout = { version = "^0.1.0.5", optional = true }
+
+[tool.poetry.extras]
+evaluator = ["geometrout"]
 
 [build-system]
 requires = ["poetry-core"]
