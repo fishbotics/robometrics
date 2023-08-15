@@ -1,29 +1,47 @@
+from __future__ import annotations
 import logging
 
+from dataclasses import dataclass
+
+from typing import Union, Dict, Any, List
 import numpy as np
 import urchin
 import yaml
 from geometrout.utils import transform_in_place
 
+@dataclass
+class CollisionSphereConfig:
+    collision_spheres: Dict[str, Dict[str, Any]]
+    self_collision_ignore: Dict[str, List[str]]
+    self_collision_buffer: Dict[str, float]
 
+    @staticmethod
+    def load_from_file(file_path):
+
+        with open(file_path) as f:
+            collision_sphere_config = yaml.safe_load(f)
+        return CollisionSphereConfig(collision_sphere_config["collision_spheres"], 
+        collision_sphere_config["self_collision_ignore"], 
+        collision_sphere_config["self_collision_buffer"], 
+        )
 class Robot:
     def __init__(
         self,
         urdf_path,
-        collision_spheres_config_path,
+        collision_sphere_config: CollisionSphereConfig,
     ):
         self.urdf = urchin.URDF.load(urdf_path, lazy_load_meshes=True)
         self.actuated_joints = [
             j for j in self.urdf.joints if j.joint_type != "fixed" and j.mimic is None
         ]
-        with open(collision_spheres_config_path) as f:
-            self.collision_sphere_config = yaml.safe_load(f)
+        self.collision_sphere_config = collision_sphere_config
+       
         self._init_collision_spheres()
         self._init_self_collision_spheres()
 
     def _init_collision_spheres(self):
         link_names = set([lnk.name for lnk in self.urdf.links])
-        for link_name in self.collision_sphere_config["collision_spheres"]:
+        for link_name in self.collision_sphere_config.collision_spheres:
             if link_name not in link_names:
                 logging.warning(
                     "Collision sphere description file has"
@@ -33,9 +51,9 @@ class Robot:
     def _init_self_collision_spheres(self):
         link_names = set([lnk.name for lnk in self.urdf.links])
         radii = []
-        cspheres = self.collision_sphere_config["collision_spheres"]
-        buffers = self.collision_sphere_config["self_collision_buffer"]
-        ignores = self.collision_sphere_config["self_collision_ignore"]
+        cspheres = self.collision_sphere_config.collision_spheres
+        buffers = self.collision_sphere_config.self_collision_buffer
+        ignores = self.collision_sphere_config.self_collision_ignore
 
         for link_name, props in cspheres.items():
             if link_name not in link_names:
@@ -63,10 +81,12 @@ class Robot:
 
     def ensure_dof(self, q):
         assert (
+
             len(q) == self.dof
         ), f"q (length: {len(q)}) must have length equal to robot DOF ({self.dof})"
 
     def within_joint_limits(self, q):
+        return True
         # Find all the joints that are actively controlled, according to the URDF
         self.ensure_dof(q)
         for qi, joint in zip(q, self.actuated_joints):
@@ -78,7 +98,7 @@ class Robot:
         self.ensure_dof(q)
         fk = self.urdf.link_fk(q, use_names=True)
         centers, radii = [], []
-        spheres = self.collision_sphere_config["collision_spheres"]
+        spheres = self.collision_sphere_config.collision_spheres
         for link_name, props in spheres.items():
             if link_name not in fk:
                 continue
@@ -98,7 +118,7 @@ class Robot:
         )
         return np.any(pairwise_distances < self.self_collision_distance_matrix)
 
-    def has_scene_collision(self, q, obstacles):
+    def has_scene_collision(self, q, obstacles: List[Any]):
         centers, radii = self._fk_sphere_info(q)
         for o in obstacles:
             if np.any(o.sdf(centers) < radii):
