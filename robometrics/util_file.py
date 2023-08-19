@@ -25,6 +25,7 @@ import os
 import yaml
 from typing import Dict
 
+
 def get_module_path():
     path = os.path.dirname(__file__)
     return path
@@ -54,6 +55,11 @@ def get_mpinets_dataset_path():
 
 def get_mb_dataset_path():
     path = os.path.join(get_dataset_path(), "mb_set.yaml")
+    return path
+
+
+def get_demo_dataset_path():
+    path = os.path.join(get_dataset_path(), "demo_set.yaml")
     return path
 
 
