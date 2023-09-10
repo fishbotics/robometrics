@@ -36,3 +36,11 @@ Please make sure to update tests as appropriate.
 [MIT](https://choosealicense.com/licenses/mit/)
 
 ## Citation
+If you find this work useful in your work, please cite:
+
+	@inproceedings{fishman2022mpinets,
+	  title={Motion Policy Networks},
+	  author={Fishman, Adam and Murali, Adithyavairavan and Eppner, Clemens and Peele, Bryan and Boots, Byron and Fox, Dieter},
+    booktitle = {Proceedings of the 6th Conference on Robot Learning (CoRL)},
+	  year={2022}
+	}
