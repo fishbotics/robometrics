@@ -21,9 +21,9 @@
 # DEALINGS IN THE SOFTWARE.
 
 from dataclasses import dataclass
-import numpy as np
-
 from typing import Dict, List, Optional, Sequence, Tuple, Union
+
+import numpy as np
 
 
 @dataclass
@@ -36,8 +36,11 @@ class Stat:
 
     @staticmethod
     def from_list(lst: Sequence[float]):
-        if len(lst) < 1:
+        if not lst:
             return Stat(0, 0, 0, 0, 0)
+
+        # We use np.inf as a way to filter out unwanted stats
+        lst = [le for le in lst if le < np.inf]
 
         return Stat(
             np.mean(lst),
@@ -49,11 +52,10 @@ class Stat:
 
     def __str__(self):
         return (
-            f"mean:{self.mean:2.3f}"
-            + f"+-{self.std:2.3f}"
-            + f" median:{self.median:2.3f}"
-            + f" 75: {self.percent_75:2.3f}"
-            + f" 98: {self.percent_98:2.3f}"
+            f"mean: {self.mean:2.3f} ± {self.std:2.3f}"
+            f" median:{self.median:2.3f}"
+            f" 75%: {self.percent_75:2.3f}"
+            f" 98%: {self.percent_98:2.3f}"
         )
 
 
@@ -70,10 +72,10 @@ class TrajectoryMetrics:
     orientation_error: float = np.inf
     eef_position_path_length: float = np.inf
     eef_orientation_path_length: float = np.inf
-    num_steps: int = -1
+    trajectory_length: int = 1
     attempts: int = 1
-    motion_time: float = 0.0
-    solve_time: float = 0.0
+    motion_time: float = np.inf
+    solve_time: float = np.inf
 
 
 @dataclass
@@ -81,8 +83,6 @@ class TrajectoryGroupMetrics:
     group_size: int  # Num trajectories in group
     success: float  # Success % in group
     skips: int  # % in group with no solution
-    time: Stat  # Mean/Std of solution time for unskipped problems
-    step_time: Stat  # Mean/Std of time per action (not always useful)
     env_collision_rate: float  # % in group with environment collisions
     self_collision_rate: float  # % in group with self collisions
     joint_violation_rate: float  # % in group with a joint limit violation
@@ -91,13 +91,14 @@ class TrajectoryGroupMetrics:
     within_five_cm_rate: float  # % in group that gets within 5cm of target
     within_fifteen_deg_rate: float  # % in group that gets within 15deg of target
     within_thirty_deg_rate: float  # % in group that gets within 30deg of target
-    eef_position_path_length: Stat  # Mean/Std of Euclidean eef path length
-    eef_orientation_path_length: Stat  # Mean/Std of orientation path length (deg)
-    attempts: int
-    position_error: float
-    orientation_error: float
-    motion_time: Stat
-    solve_time: float
+    eef_position_path_length: Stat  # Stats on Euclidean eef path length
+    eef_orientation_path_length: Stat  # Stats on orientation path length (deg)
+    attempts: Stat  # Stats on the number of attempts taken to reach a solution
+    position_error: Stat  # Stats on position error in reaching target
+    orientation_error: Stat  # Stats on orientation error
+    motion_time: Stat  # Stats on time to execute (useful for evaluating time-optimality of trajectories)
+    solve_time: Stat  # Stats on time to find a trajectory
+    solve_time_per_step: Stat  # Stats on average time to find an action (meaningful to evaluate reaction time)
 
     @staticmethod
     def from_list(group: List[TrajectoryMetrics]):
@@ -107,8 +108,6 @@ class TrajectoryGroupMetrics:
             group_size=len(group),
             success=percent_true([m.success for m in group]),
             skips=len([m for m in group if m.skip]),
-            time=Stat.from_list([m.time for m in successes]),
-            step_time=Stat.from_list([m.time / m.num_steps for m in successes]),
             env_collision_rate=percent_true([m.collision for m in unskipped]),
             self_collision_rate=percent_true([m.self_collision for m in unskipped]),
             joint_violation_rate=percent_true(
@@ -136,9 +135,12 @@ class TrajectoryGroupMetrics:
             orientation_error=Stat.from_list([m.orientation_error for m in successes]),
             motion_time=Stat.from_list([m.motion_time for m in successes]),
             solve_time=Stat.from_list([m.solve_time for m in successes]),
+            solve_time_per_step=Stat.from_list(
+                [m.solve_time / m.trajectory_length for m in successes]
+            ),
         )
 
-    def print(self):
+    def print_summary(self):
         print(f"Total problems: {self.group_size}")
         print(f"# Skips (Hard Failures): {self.skips}")
         print(f"% Success: {self.success:4.2f}")
@@ -161,11 +163,16 @@ class TrajectoryGroupMetrics:
             f" {self.eef_orientation_path_length.mean:4.2f}"
             f" ± {self.eef_orientation_path_length.std:4.2f}"
         )
-        print(f"Average Time: {self.time.mean:4.2f} ± {self.time.std:4.2f}")
+        print(
+            f"Average Motion Time: {self.motion_time.mean:4.2f} ± {self.motion_time.std:4.2f}"
+        )
+        print(
+            f"Average Solve Time: {self.solve_time.mean:4.2f} ± {self.solve_time.std:4.2f}"
+        )
         print(
             "Average Time Per Step (Not Always Valuable):"
-            f" {self.step_time.mean:4.6f}"
-            f" ± {self.step_time.std:4.6f}"
+            f" {self.solve_time_per_step.mean:4.6f}"
+            f" ± {self.solve_time_per_step.std:4.6f}"
         )
 
 
