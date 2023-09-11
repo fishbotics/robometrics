@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 import logging
-
 from dataclasses import dataclass
+from typing import Any, Dict, List
 
-from typing import Union, Dict, Any, List
 import numpy as np
 import urchin
 import yaml
 from geometrout.utils import transform_in_place
+
 
 @dataclass
 class CollisionSphereConfig:
@@ -17,13 +18,15 @@ class CollisionSphereConfig:
 
     @staticmethod
     def load_from_file(file_path):
-
         with open(file_path) as f:
             collision_sphere_config = yaml.safe_load(f)
-        return CollisionSphereConfig(collision_sphere_config["collision_spheres"], 
-        collision_sphere_config["self_collision_ignore"], 
-        collision_sphere_config["self_collision_buffer"], 
+        return CollisionSphereConfig(
+            collision_sphere_config["collision_spheres"],
+            collision_sphere_config["self_collision_ignore"],
+            collision_sphere_config["self_collision_buffer"],
         )
+
+
 class Robot:
     def __init__(
         self,
@@ -35,7 +38,7 @@ class Robot:
             j for j in self.urdf.joints if j.joint_type != "fixed" and j.mimic is None
         ]
         self.collision_sphere_config = collision_sphere_config
-       
+
         self._init_collision_spheres()
         self._init_self_collision_spheres()
 
@@ -81,12 +84,10 @@ class Robot:
 
     def ensure_dof(self, q):
         assert (
-
             len(q) == self.dof
         ), f"q (length: {len(q)}) must have length equal to robot DOF ({self.dof})"
 
     def within_joint_limits(self, q):
-        return True
         # Find all the joints that are actively controlled, according to the URDF
         self.ensure_dof(q)
         for qi, joint in zip(q, self.actuated_joints):

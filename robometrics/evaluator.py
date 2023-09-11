@@ -22,40 +22,47 @@
 
 import itertools
 import pickle
-from collections import namedtuple
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from geometrout.primitive import Cuboid, Cylinder, Sphere
-from geometrout.transform import SE3, SO3
 
+try:
+    from geometrout import SE3, SO3, Cuboid, Cylinder, Sphere
+except ImportError:
+    raise ImportError(
+        "Optional package geometrout not installed, so this function is disabled"
+    )
+
+from robometrics.metrics import TrajectoryGroupMetrics, TrajectoryMetrics
 from robometrics.robot import Robot
-
-from .metrics import TrajectoryGroupMetrics, TrajectoryMetrics
-
 
 Obstacles = List[Union[Cuboid, Cylinder, Sphere]]
 Trajectory = Sequence[Union[Sequence, np.ndarray]]
 EefTrajectory = Sequence[SE3]
 
 
-
-def correct_negative_volumes(
-    volumes: List[Obstacles], target_pose: SE3
-) -> List[Obstacles]:
+def check_final_position(final_pose: SE3, target: SE3) -> float:
     """
-    Filters out any invalid volumes from a list of negative volumes. Invalid volumes
-    would be ones in which the target pose is inside. This would make all trajectories
-    to that final pose invalid (because a condition of success is that the final eef
-    is not inside any of the negative volumes)
+    Gets the number of centimeters between the final pose and target
 
-    :param volumes List[Obstacles]: A list of negative volumes
-    :param target_pose SE3: The target pose for a trajectory
-    :return List[Obstacles]: The valid negative volumes (i.e. ones where the target is not inside one)
+    :param final_pose SE3: The final pose of the trajectory
+    :param target SE3: The target pose
+    :rtype float: The distance in centimeters
     """
-    return [v for v in volumes if v.sdf(target_pose.pos) > 0]
+    return 100 * np.linalg.norm(final_pose.pos - target.pos)
+
+
+def check_final_orientation(final_orientation: SO3, target: SO3) -> float:
+    """
+    Gets the number of degrees between the final orientation and the target
+    orientation
+
+    :param final_orientation SO3: The final orientation
+    :param target SO3: The final target orientation
+    :rtype float: The rotational distance in degrees
+    """
+    return np.abs((final_orientation * target.conjugate).degrees)
 
 
 class Evaluator:
@@ -145,54 +152,6 @@ class Evaluator:
             or self.has_self_collision(trajectory)
         )
 
-    @staticmethod
-    def check_final_position(final_pose: SE3, target: SE3) -> float:
-        """
-        Gets the number of centimeters between the final pose and target
-
-        :param final_pose SE3: The final pose of the trajectory
-        :param target SE3: The target pose
-        :rtype float: The distance in centimeters
-        """
-        return 100 * np.linalg.norm(final_pose.pos - target.pos)
-
-    @staticmethod
-    def check_final_orientation(final_orientation: SO3, target: SO3) -> float:
-        """
-        Gets the number of degrees between the final orientation and the target
-        orientation
-
-        :param final_orientation SO3: The final orientation
-        :param target SO3: The final target orientation
-        :rtype float: The rotational distance in degrees
-        """
-        return np.abs((final_orientation * target.conjugate).degrees)
-
-    @staticmethod
-    def check_final_region(
-        final_pose: SE3,
-        target_volume: Union[Cuboid, Cylinder, Sphere, None],
-        negative_volumes: Obstacles,
-    ) -> bool:
-        """
-        Checks that the final pose is in the correct region if one is specified. For
-        example, when reaching inside a drawer, it is not sufficient to be close to the
-        final target as a condition of success. Instead, the final pose might be in
-        the correct drawer (and likewise not in the incorrect drawer)
-
-        :param final_pose SE3: The final pose of the trajectory
-        :param target_volume Union[Cuboid, Cylinder, Sphere]: The volume to be inside of
-        :param negative_volumes Obstacles: Volumes to be outside of
-        :rtype bool: Whether the check is successful and the target is in the right
-                     region and outside the wrong regions
-        """
-        if target_volume is None:
-            return np.all([v.sdf(final_pose.pos) > 0 for v in negative_volumes])
-
-        return target_volume.sdf(final_pose.pos) <= 0 and np.all(
-            [v.sdf(final_pose.pos) > 0 for v in negative_volumes]
-        )
-
     def calculate_eef_path_lengths(
         self, eef_trajectory: EefTrajectory
     ) -> Tuple[float, float]:
@@ -220,11 +179,9 @@ class Evaluator:
     def evaluate_trajectory(
         self,
         trajectory: Trajectory,
-        eef_trajectory: Trajectory,
+        eef_trajectory: EefTrajectory,
         target_pose: SE3,
         obstacles: Obstacles,
-        target_volume: Union[Cuboid, Cylinder, Sphere, None],
-        target_negative_volumes: Obstacles,
         time: float,
         skip_metrics: bool = False,
     ):
@@ -235,10 +192,6 @@ class Evaluator:
         :param eef_trajectory EefTrajectory: The trajectory followed by the Eef
         :param target_pose SE3: The target pose
         :param obstacles Obstacles: The obstacles in the scene
-        :param target_volume Union[Cuboid, Cylinder, Sphere]: The target volume for
-                                                              the trajectory
-        :param target_negative_volumes Obstacles: Volumes that the target should
-                                                  definitely be outside
         :param time float: The time taken to calculate the trajectory
         :param skip_metrics bool: Whether to skip the path metrics (for example if it's
                                   a feasibility planner that failed)
@@ -257,28 +210,19 @@ class Evaluator:
             joint_limit_violation=self.violates_joint_limits(trajectory),
             self_collision=self.has_self_collision(trajectory),
             physical_violation=self.has_physical_violation(trajectory, obstacles),
-            position_error=self.check_final_position(eef_trajectory[-1], target_pose),
-            orientation_error=self.check_final_orientation(
+            position_error=check_final_position(eef_trajectory[-1], target_pose),
+            orientation_error=check_final_orientation(
                 eef_trajectory[-1].so3, target_pose.so3
             ),
             eef_position_path_length=eef_pos_path,
             eef_orientation_path_length=eef_orien_path,
-            num_steps=len(trajectory),
+            trajectory_length=len(trajectory),
         )
-        metrics.success = (
-            metrics.position_error < 1
-            and self.check_final_region(
-                eef_trajectory[-1],
-                target_volume,
-                correct_negative_volumes(target_negative_volumes, target_pose),
-            )
-            and metrics.orientation_error < 15
-            and not metrics.physical_violation
-        )
+        metrics.success = metrics.position_error < 1 and not metrics.physical_violation
         self.current_group.append(metrics)
 
-    @staticmethod
-    def metrics(group: List[TrajectoryMetrics]) -> TrajectoryGroupMetrics:
+    @classmethod
+    def metrics(cls, group: List[TrajectoryMetrics]) -> TrajectoryGroupMetrics:
         """
         Calculates the metrics for a specific group
 
@@ -295,7 +239,7 @@ class Evaluator:
         :param group Dict[str, float]: The group of results
         """
         metrics = TrajectoryGroupMetrics.from_list(group)
-        metrics.print()
+        metrics.print_summary()
 
     def save_group(self, directory: str, test_name: str, key: Optional[str] = None):
         """

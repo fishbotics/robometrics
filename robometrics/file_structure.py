@@ -29,12 +29,12 @@ def get_module_path() -> Path:
 
 
 def get_content_path() -> Path:
-    return _get_module_path() / "content"
+    return get_module_path() / "content"
 
 
 def get_dataset_path() -> Path:
-    return _get_content_path() / "dataset"
+    return get_content_path() / "dataset"
 
 
 def get_robot_path() -> Path:
-    return _get_content_path() / "robot"
+    return get_content_path() / "robot"

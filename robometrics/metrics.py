@@ -27,22 +27,22 @@ import numpy as np
 
 
 @dataclass
-class Stat:
+class Statistic:
     mean: float
     std: float
     median: float
     percent_75: float
     percent_98: float
 
-    @staticmethod
-    def from_list(lst: Sequence[float]):
+    @classmethod
+    def from_list(cls, lst: Sequence[float]):
         if not lst:
-            return Stat(0, 0, 0, 0, 0)
+            return cls(0, 0, 0, 0, 0)
 
         # We use np.inf as a way to filter out unwanted stats
         lst = [le for le in lst if le < np.inf]
 
-        return Stat(
+        return Statistic(
             np.mean(lst),
             np.std(lst),
             np.median(lst),
@@ -91,20 +91,20 @@ class TrajectoryGroupMetrics:
     within_five_cm_rate: float  # % in group that gets within 5cm of target
     within_fifteen_deg_rate: float  # % in group that gets within 15deg of target
     within_thirty_deg_rate: float  # % in group that gets within 30deg of target
-    eef_position_path_length: Stat  # Stats on Euclidean eef path length
-    eef_orientation_path_length: Stat  # Stats on orientation path length (deg)
-    attempts: Stat  # Stats on the number of attempts taken to reach a solution
-    position_error: Stat  # Stats on position error in reaching target
-    orientation_error: Stat  # Stats on orientation error
-    motion_time: Stat  # Stats on time to execute (useful for evaluating time-optimality of trajectories)
-    solve_time: Stat  # Stats on time to find a trajectory
-    solve_time_per_step: Stat  # Stats on average time to find an action (meaningful to evaluate reaction time)
+    eef_position_path_length: Statistic  # Stats on Euclidean eef path length
+    eef_orientation_path_length: Statistic  # Stats on orientation path length (deg)
+    attempts: Statistic  # Stats on the number of attempts taken to reach a solution
+    position_error: Statistic  # Stats on position error in reaching target
+    orientation_error: Statistic  # Stats on orientation error
+    motion_time: Statistic  # Stats on time to execute (useful for evaluating time-optimality of trajectories)
+    solve_time: Statistic  # Stats on time to find a trajectory
+    solve_time_per_step: Statistic  # Stats on average time to find an action (meaningful to evaluate reaction time)
 
-    @staticmethod
-    def from_list(group: List[TrajectoryMetrics]):
+    @classmethod
+    def from_list(cls, group: List[TrajectoryMetrics]):
         unskipped = [m for m in group if not m.skip]
         successes = [m for m in unskipped if m.success]
-        return TrajectoryGroupMetrics(
+        return cls(
             group_size=len(group),
             success=percent_true([m.success for m in group]),
             skips=len([m for m in group if m.skip]),
@@ -124,18 +124,20 @@ class TrajectoryGroupMetrics:
             within_thirty_deg_rate=percent_true(
                 [m.orientation_error < 30 for m in unskipped]
             ),
-            eef_position_path_length=Stat.from_list(
+            eef_position_path_length=Statistic.from_list(
                 [m.eef_position_path_length for m in successes]
             ),
-            eef_orientation_path_length=Stat.from_list(
+            eef_orientation_path_length=Statistic.from_list(
                 [m.eef_orientation_path_length for m in successes]
             ),
-            attempts=Stat.from_list([m.attempts for m in successes]),
-            position_error=Stat.from_list([m.position_error for m in successes]),
-            orientation_error=Stat.from_list([m.orientation_error for m in successes]),
-            motion_time=Stat.from_list([m.motion_time for m in successes]),
-            solve_time=Stat.from_list([m.solve_time for m in successes]),
-            solve_time_per_step=Stat.from_list(
+            attempts=Statistic.from_list([m.attempts for m in successes]),
+            position_error=Statistic.from_list([m.position_error for m in successes]),
+            orientation_error=Statistic.from_list(
+                [m.orientation_error for m in successes]
+            ),
+            motion_time=Statistic.from_list([m.motion_time for m in successes]),
+            solve_time=Statistic.from_list([m.solve_time for m in successes]),
+            solve_time_per_step=Statistic.from_list(
                 [m.solve_time / m.trajectory_length for m in successes]
             ),
         )
