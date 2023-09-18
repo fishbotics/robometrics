@@ -1,5 +1,3 @@
-import pytest
-
 from robometrics.datasets import demo_raw, motion_benchmaker_raw, mpinets_raw
 
 
@@ -9,5 +7,3 @@ def test_raw_dataset():
         data = k()
         assert len(data[list(data.keys())[0]]) > 0
 
-
-test_raw_dataset()
