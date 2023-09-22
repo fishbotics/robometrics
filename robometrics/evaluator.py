@@ -184,9 +184,9 @@ class Evaluator:
         obstacles: Obstacles,
         time: float,
         skip_metrics: bool = False,
-    ):
+    )  -> TrajectoryMetrics:
         """
-        Evaluates a single trajectory and stores the metrics in the current group.
+        Evaluates a single trajectory, stores the metrics in the current group and returns metrics.
 
         :param trajectory Trajectory: The trajectory
         :param eef_trajectory EefTrajectory: The trajectory followed by the Eef
@@ -195,6 +195,7 @@ class Evaluator:
         :param time float: The time taken to calculate the trajectory
         :param skip_metrics bool: Whether to skip the path metrics (for example if it's
                                   a feasibility planner that failed)
+        :rtype TrajectoryMetrics: The metrics
         """
         if skip_metrics:
             self.current_group.append(TrajectoryMetrics())
@@ -205,7 +206,7 @@ class Evaluator:
         ) = self.calculate_eef_path_lengths(eef_trajectory)
         metrics = TrajectoryMetrics(
             skip=False,
-            time=time,
+            solve_time=time,
             collision=self.in_collision(trajectory, obstacles),
             joint_limit_violation=self.violates_joint_limits(trajectory),
             self_collision=self.has_self_collision(trajectory),
@@ -220,7 +221,7 @@ class Evaluator:
         )
         metrics.success = metrics.position_error < 1 and not metrics.physical_violation
         self.current_group.append(metrics)
-
+        return metrics
     @classmethod
     def metrics(cls, group: List[TrajectoryMetrics]) -> TrajectoryGroupMetrics:
         """

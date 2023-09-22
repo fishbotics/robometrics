@@ -91,7 +91,7 @@ class Robot:
         # Find all the joints that are actively controlled, according to the URDF
         self.ensure_dof(q)
         for qi, joint in zip(q, self.actuated_joints):
-            if qi < joint.lower or qi > joint.upper:
+            if qi < joint.limit.lower or qi > joint.limit.upper:
                 return False
         return True
 
