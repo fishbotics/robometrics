@@ -104,3 +104,8 @@ def mpinets_raw() -> Dict[str, Any]:
 def mpinets() -> Dict[str, Any]:
     raw_data = mpinets_raw()
     return structure_dataset(raw_data)
+
+
+def demo() -> Dict[str, Any]:
+    raw_data = demo_raw()
+    return structure_dataset(raw_data)

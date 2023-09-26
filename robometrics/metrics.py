@@ -63,7 +63,6 @@ class Statistic:
 class TrajectoryMetrics:
     skip: bool = True
     success: bool = False
-    time: float = np.inf
     collision: bool = True
     joint_limit_violation: bool = True
     self_collision: bool = True
