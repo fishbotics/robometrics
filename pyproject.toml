@@ -9,7 +9,7 @@ readme = "README.md"
 python = "^3.7"
 numpy = "^1.15"
 pyyaml = ">5.3" # there is a bug in installing pyyaml < 6.0 in python 3.10
-geometrout = { version = "^0.1.0.9", optional = true }
+geometrout = { version = "^0.1.0.10", optional = true }
 
 [tool.poetry.extras]
 evaluator = ["geometrout"]

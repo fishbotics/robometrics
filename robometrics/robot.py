@@ -2,47 +2,65 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
 
 import numpy as np
 import urchin
 import yaml
-from geometrout.utils import transform_in_place
+from geometrout import Sphere
+from geometrout.maths import transform_in_place
+
+from robometrics.robometrics_types import Obstacles
 
 
 @dataclass
 class CollisionSphereConfig:
-    collision_spheres: Dict[str, Dict[str, Any]]
+    """Used to represent the collision spheres for the robot."""
+
+    collision_spheres: Dict[str, List[Sphere]]
     self_collision_ignore: Dict[str, List[str]]
     self_collision_buffer: Dict[str, float]
 
-    @staticmethod
-    def load_from_file(file_path):
+    @classmethod
+    def load_from_file(cls, file_path):
         with open(file_path) as f:
             collision_sphere_config = yaml.safe_load(f)
-        return CollisionSphereConfig(
-            collision_sphere_config["collision_spheres"],
-            collision_sphere_config["self_collision_ignore"],
-            collision_sphere_config["self_collision_buffer"],
+        return cls(
+            collision_spheres={
+                k: [Sphere(center=s["center"], radius=s["radius"]) for s in v]
+                for k, v in collision_sphere_config["collision_spheres"].items()
+            },
+            self_collision_ignore=collision_sphere_config["self_collision_ignore"],
+            self_collision_buffer=collision_sphere_config["self_collision_buffer"],
         )
 
 
 class Robot:
+    """Used to represent a robot (defined by a URDF) and its collision spheres."""
+
     def __init__(
         self,
-        urdf_path,
+        urdf_path: Union[Path, str],
         collision_sphere_config: CollisionSphereConfig,
     ):
+        """Loads the URDF and collision spheres.
+
+        Args:
+            urdf_path: Path to the URDF file.
+            collision_sphere_config: Path to collision sphere yaml file.
+        """
         self.urdf = urchin.URDF.load(urdf_path, lazy_load_meshes=True)
         self.actuated_joints = [
             j for j in self.urdf.joints if j.joint_type != "fixed" and j.mimic is None
         ]
         self.collision_sphere_config = collision_sphere_config
 
-        self._init_collision_spheres()
+        self._check_collision_spheres()
         self._init_self_collision_spheres()
 
-    def _init_collision_spheres(self):
+    def _check_collision_spheres(self):
+        """Verifies that the links in the collision sphere file match the URDF."""
         link_names = set([lnk.name for lnk in self.urdf.links])
         for link_name in self.collision_sphere_config.collision_spheres:
             if link_name not in link_names:
@@ -52,20 +70,23 @@ class Robot:
                 )
 
     def _init_self_collision_spheres(self):
+        """Creates a matrix for self-collision checking."""
         link_names = set([lnk.name for lnk in self.urdf.links])
         radii = []
         cspheres = self.collision_sphere_config.collision_spheres
         buffers = self.collision_sphere_config.self_collision_buffer
         ignores = self.collision_sphere_config.self_collision_ignore
 
-        for link_name, props in cspheres.items():
+        for link_name, link_spheres in cspheres.items():
             if link_name not in link_names:
                 logging.warning(
                     "Self Collision sphere description file"
                     f" has link ({link_name}) not found in URDF"
                 )
                 continue
-            radii.extend([(link_name, p["radius"] + buffers[link_name]) for p in props])
+            radii.extend(
+                [(link_name, s.radius + buffers[link_name]) for s in link_spheres]
+            )
 
         nspheres = len(radii)
         mat = -np.inf * np.ones((nspheres, nspheres))
@@ -95,23 +116,42 @@ class Robot:
                 return False
         return True
 
-    def _fk_sphere_info(self, q):
+    def _fk_sphere_info(self, q: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
+        """Maps the spheres to the robot with forward kinematics.
+
+        Args:
+            q: The robot configuration
+
+        Returns:
+            A tuple of numpy arrays: (centers, radii)
+        """
         self.ensure_dof(q)
         fk = self.urdf.link_fk(q, use_names=True)
         centers, radii = [], []
         spheres = self.collision_sphere_config.collision_spheres
-        for link_name, props in spheres.items():
+        for link_name, link_spheres in spheres.items():
             if link_name not in fk:
                 continue
             centers.append(
                 transform_in_place(
-                    np.stack([s["center"] for s in props]), fk[link_name]
+                    np.stack([s.center for s in link_spheres]), fk[link_name]
                 )
             )
-            radii.append(np.stack([s["radius"] for s in props]))
+            radii.append(np.stack([s.radius for s in link_spheres]))
         return np.concatenate(centers, axis=0), np.concatenate(radii, axis=0)
 
-    def has_self_collision(self, q):
+    def has_self_collision(self, q: np.ndarray) -> bool:
+        """Checks for illegal self-collisions.
+
+        Uses the allowable self-collisions defined in the CollisionSphereConfig to
+        check whether there are any collisions that are considered bad.
+
+        Args:
+            q: The robot configuration
+
+        Returns:
+            Whether there are illegal self collisions
+        """
         centers, _ = self._fk_sphere_info(q)
         centers_matrix = np.tile(centers, (centers.shape[0], 1, 1))
         pairwise_distances = np.linalg.norm(
@@ -119,7 +159,16 @@ class Robot:
         )
         return np.any(pairwise_distances < self.self_collision_distance_matrix)
 
-    def has_scene_collision(self, q, obstacles: List[Any]):
+    def has_scene_collision(self, q: np.ndarray, obstacles: Obstacles) -> bool:
+        """Checks whether any of the robot spheres are in collision with an obstacle.
+
+        Args:
+            q: The robot configuration (must match dof)
+            obstacles: The obstacles in the scene
+
+        Returns:
+            True if colliding, False if not
+        """
         centers, radii = self._fk_sphere_info(q)
         for o in obstacles:
             if np.any(o.sdf(centers) < radii):
