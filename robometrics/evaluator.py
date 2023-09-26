@@ -1,25 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES, University of Washington. All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
 import itertools
 import pickle
 from pathlib import Path
@@ -27,7 +5,8 @@ from typing import Dict, List, Optional
 
 from geometrout import SE3
 
-from robometrics import metrics as rms
+from robometrics import metrics as rmt
+from robometrics import statistics as rms
 from robometrics.robometrics_types import EefTrajectory, Obstacles, Trajectory
 from robometrics.robot import Robot
 
@@ -85,18 +64,18 @@ class Evaluator:
         (
             eef_pos_path,
             eef_orien_path,
-        ) = rms.calculate_eef_path_lengths(eef_trajectory)
+        ) = rmt.calculate_eef_path_lengths(eef_trajectory)
         metrics = rms.TrajectoryMetrics(
             skip=False,
             solve_time=time,
-            collision=rms.in_collision(self.robot, trajectory, obstacles),
-            joint_limit_violation=rms.violates_joint_limits(self.robot, trajectory),
-            self_collision=rms.has_self_collision(self.robot, trajectory),
-            physical_violation=rms.has_physical_violation(
+            collision=rmt.in_collision(self.robot, trajectory, obstacles),
+            joint_limit_violation=rmt.violates_joint_limits(self.robot, trajectory),
+            self_collision=rmt.has_self_collision(self.robot, trajectory),
+            physical_violation=rmt.has_physical_violation(
                 self.robot, trajectory, obstacles
             ),
-            position_error=rms.position_error_in_cm(eef_trajectory[-1], target_pose),
-            orientation_error=rms.orientation_error_in_degrees(
+            position_error=rmt.position_error_in_cm(eef_trajectory[-1], target_pose),
+            orientation_error=rmt.orientation_error_in_degrees(
                 eef_trajectory[-1].so3, target_pose.so3
             ),
             eef_position_path_length=eef_pos_path,
