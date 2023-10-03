@@ -28,11 +28,22 @@ class CollisionSphereConfig:
             collision_sphere_config = yaml.safe_load(f)
         return cls(
             collision_spheres={
-                k: [Sphere(center=s["center"], radius=s["radius"]) for s in v]
+                k: [Sphere(center=np.ravel(s["center"]), radius=s["radius"]) for s in v]
                 for k, v in collision_sphere_config["collision_spheres"].items()
             },
             self_collision_ignore=collision_sphere_config["self_collision_ignore"],
             self_collision_buffer=collision_sphere_config["self_collision_buffer"],
+        )
+
+    @classmethod
+    def load_from_dictionary(cls, data_dictionary):
+        return cls(
+            collision_spheres={
+                k: [Sphere(center=np.ravel(s["center"]), radius=s["radius"]) for s in v]
+                for k, v in data_dictionary["collision_spheres"].items()
+            },
+            self_collision_ignore=data_dictionary["self_collision_ignore"],
+            self_collision_buffer=data_dictionary["self_collision_buffer"],
         )
 
 

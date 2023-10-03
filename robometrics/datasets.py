@@ -19,7 +19,14 @@ def structure_problems(problem_dict):
     ), "Optional package geometrout not installed, so this function is disabled"
 
     assert set(problem_dict.keys()) == set(
-        ["collision_buffer_ik", "goal_ik", "goal_pose", "obstacles", "start"]
+        [
+            "collision_buffer_ik",
+            "goal_ik",
+            "goal_pose",
+            "obstacles",
+            "start",
+            "world_frame",
+        ]
     )
     assert set(problem_dict["obstacles"].keys()) == set(["cuboid", "cylinder"])
     obstacles = {
@@ -45,8 +52,8 @@ def structure_problems(problem_dict):
         "collision_buffer_ik": problem_dict["collision_buffer_ik"],
         "goal_ik": [np.asarray(ik) for ik in problem_dict["goal_ik"]],
         "goal_pose": geometrout.SE3(
-            pos=np.array(problem_dict["goal_pose"][:3]),
-            quaternion=np.array(problem_dict["goal_pose"][3:]),
+            pos=np.array(problem_dict["goal_pose"]["position_xyz"]),
+            quaternion=np.array(problem_dict["goal_pose"]["quaternion_wxyz"]),
         ),
         "obstacles": obstacles,
     }
