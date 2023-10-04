@@ -6,4 +6,3 @@ def test_raw_dataset():
     for k in [demo_raw, mpinets_raw, motion_benchmaker_raw]:
         data = k()
         assert len(data[list(data.keys())[0]]) > 0
-

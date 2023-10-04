@@ -1,26 +1,3 @@
-# MIT License
-#
-# Copyright (c) 2022 NVIDIA CORPORATION & AFFILIATES, University of Washington. All rights reserved.
-#
-# Permission is hereby granted, free of charge, to any person obtaining a
-# copy of this software and associated documentation files (the "Software"),
-# to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense,
-# and/or sell copies of the Software, and to permit persons to whom the
-# Software is furnished to do so, subject to the following conditions:
-#
-# The above copyright notice and this permission notice shall be included in
-# all copies or substantial portions of the Software.
-#
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-# THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-# FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-# DEALINGS IN THE SOFTWARE.
-
-
 from typing import Any, Dict
 
 import numpy as np
@@ -28,17 +5,28 @@ import yaml
 
 from robometrics.file_structure import get_dataset_path
 
+try:
+    import geometrout
+except ImportError:
+    _HAS_GEOMETROUT = False
+else:
+    _HAS_GEOMETROUT = True
+
 
 def structure_problems(problem_dict):
-    try:
-        import geometrout
-    except ImportError:
-        raise ImportError(
-            "Optional package geometrout not installed, so this function is disabled"
-        )
+    assert (
+        _HAS_GEOMETROUT
+    ), "Optional package geometrout not installed, so this function is disabled"
 
     assert set(problem_dict.keys()) == set(
-        ["collision_buffer_ik", "goal_ik", "goal_pose", "obstacles", "start"]
+        [
+            "collision_buffer_ik",
+            "goal_ik",
+            "goal_pose",
+            "obstacles",
+            "start",
+            "world_frame",
+        ]
     )
     assert set(problem_dict["obstacles"].keys()) == set(["cuboid", "cylinder"])
     obstacles = {
@@ -64,8 +52,8 @@ def structure_problems(problem_dict):
         "collision_buffer_ik": problem_dict["collision_buffer_ik"],
         "goal_ik": [np.asarray(ik) for ik in problem_dict["goal_ik"]],
         "goal_pose": geometrout.SE3(
-            pos=np.array(problem_dict["goal_pose"][:3]),
-            quaternion=np.array(problem_dict["goal_pose"][3:]),
+            pos=np.array(problem_dict["goal_pose"]["position_xyz"]),
+            quaternion=np.array(problem_dict["goal_pose"]["quaternion_wxyz"]),
         ),
         "obstacles": obstacles,
     }
