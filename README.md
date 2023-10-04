@@ -1,19 +1,17 @@
 # Robometrics
 
-Robometrics 
+Robometrics is a framework for evaluating robot motion. It is currently focused on motion for robotic manipulation. The code here should be considered a beta release. More information and documentation to come.
 ## Installation
 
 Use the package manager [pip](https://pip.pypa.io/en/stable/) to install robometrics.
 
 ```bash
-pip install robometrics
+pip install git+https://github.com/fishbotics/robometrics.git
 ```
 
 ## Usage
 
-```python
-import robometrics
-```
+More information, documentation, and example uses to come soon.
 
 ## Contributing
 
