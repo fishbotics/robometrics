@@ -51,11 +51,14 @@ def structure_problems(problem_dict):
     return {
         "collision_buffer_ik": problem_dict["collision_buffer_ik"],
         "goal_ik": [np.asarray(ik) for ik in problem_dict["goal_ik"]],
+        "goal_pose_frame": problem_dict["goal_pose"]["frame"],
         "goal_pose": geometrout.SE3(
             pos=np.array(problem_dict["goal_pose"]["position_xyz"]),
             quaternion=np.array(problem_dict["goal_pose"]["quaternion_wxyz"]),
         ),
         "obstacles": obstacles,
+        "start": np.asarray(problem_dict["start"]),
+        "world_frame": problem_dict["world_frame"],
     }
 
 
